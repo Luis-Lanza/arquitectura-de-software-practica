@@ -236,6 +236,39 @@ public class CompleteSaleBl {
         return entries;
     }
 
+    private ProductDto validateProductAndReserveStock(Integer productId, Integer quantity) {
+        logger.info("Validating product {} and attempting to reserve {} units", productId, quantity);
+
+        try {
+            // Get product information to verify it exists
+            ResponseEntity<ProductDto> productResponse = warehouseClient.getProduct(productId);
+            if (!productResponse.getStatusCode().is2xxSuccessful() || productResponse.getBody() == null) {
+                throw new RuntimeException("Product not found with ID: " + productId);
+            }
+
+            ProductDto product = productResponse.getBody();
+            logger.info("Product exists: {}", product);
+
+            // Attempt to reserve stock directly (this will validate availability atomically)
+            ResponseEntity<ProductDto> reserveResponse = warehouseClient.reserveStock(productId, quantity);
+            
+            if (!reserveResponse.getStatusCode().is2xxSuccessful() || reserveResponse.getBody() == null) {
+                throw new RuntimeException("Failed to reserve stock for product: " + productId);
+            }
+
+            ProductDto updatedProduct = reserveResponse.getBody();
+            logger.info("Stock reserved successfully: {}", updatedProduct);
+            return updatedProduct;
+
+        } catch (Exception e) {
+            logger.error("Failed to validate product and reserve stock", e);
+            if (e.getMessage().contains("Insufficient stock") || e.getMessage().contains("[409]")) {
+                throw new RuntimeException("Insufficient stock. Required: " + quantity + ", Available: 0", e);
+            }
+            throw new RuntimeException("Product validation and stock reservation failed: " + e.getMessage(), e);
+        }
+    }
+
     private String generateSaleNumber() {
         return "SALE-" + System.currentTimeMillis();
     }
@@ -257,51 +290,73 @@ public class CompleteSaleBl {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Sale createAndSaveSaleWithTestPrice(ProductDto productDto, Integer quantity, BigDecimal testPrice) {
-        logger.info("=== SALES SERVICE - TEST SAGA ORCHESTRATOR ===");
-        logger.info("CompleteSaleBl.createAndSaveSaleWithTestPrice called with testPrice: {}", testPrice);
+    public Sale createAndSaveSaleWithProductDtoPrice(ProductDto productDto, Integer quantity) {
+        logger.info("=== SALES SERVICE - SAGA ORCHESTRATOR (MONOLITH-STYLE) ===");
+        logger.info("CompleteSaleBl.createAndSaveSaleWithProductDtoPrice called with productDto: {} and quantity: {}", 
+                   productDto, quantity);
 
         String saleNumber = generateSaleNumber();
         logger.info("Generated sale number: {}", saleNumber);
 
         try {
-            // Skip warehouse validation for test, use provided price directly
-            logger.info("TEST SAGA STEP 1: Using provided test price: {}", testPrice);
+            // STEP 1: Validate Product exists and Reserve Stock (Warehouse Service) - atomic operation
+            logger.info("SAGA STEP 1: Validating product exists and reserving stock");
+            ProductDto validatedProduct = validateProductAndReserveStock(productDto.getId(), quantity);
+            logger.info("Product validated and stock reserved for productId: {}", productDto.getId());
 
-            // Create Sale Entity with test price
-            logger.info("TEST SAGA STEP 2: Creating sale entity with test price");
+            // STEP 2: Create Sale Entity using ProductDto price (like monolith)
+            logger.info("SAGA STEP 2: Creating sale entity using ProductDto price: {}", productDto.getPrice());
             Sale sale = createSaleEntity(productDto, quantity, saleNumber);
-            sale.setUnitPrice(testPrice); // Override with test price
-            sale.setTotalAmount(testPrice.multiply(BigDecimal.valueOf(quantity))); // Recalculate with test price
-            logger.info("Sale entity created with test price: {}", sale);
+            logger.info("Sale entity created: {}", sale);
 
-            // Register Accounting Entries with test price (this will trigger 0.99 if needed)
-            logger.info("TEST SAGA STEP 3: Registering accounting entries with test price");
+            // STEP 3: Register Accounting Entries (will trigger 0.99 rollback if needed)
+            logger.info("SAGA STEP 3: Registering accounting entries");
             
             // Check for rollback trigger (0.99 price)
-            if (testPrice.compareTo(new BigDecimal("0.99")) == 0) {
-                logger.warn("0.99 TEST TRIGGER DETECTED: This will force accounting failure");
+            if (productDto.getPrice().compareTo(new BigDecimal("0.99")) == 0) {
+                logger.warn("ROLLBACK TRIGGER DETECTED: Price is 0.99, this may trigger accounting failure");
             }
             
-            registerSaleInJournal(sale);
-            logger.info("Accounting entries registered successfully with test price");
+            try {
+                registerSaleInJournal(sale);
+                logger.info("Accounting entries registered successfully");
+            } catch (Exception accountingException) {
+                logger.warn("Accounting service error: {}", accountingException.getMessage());
+                // Re-throw to trigger rollback
+                throw accountingException;
+            }
 
-            // Save Sale
-            logger.info("TEST SAGA STEP 4: Saving sale to database");
+            // STEP 4: Save Sale (Sales Service)
+            logger.info("SAGA STEP 4: Saving sale to database");
             Sale savedSale = saleRepository.save(sale);
-            logger.info("Test sale saved successfully: {}", savedSale);
+            logger.info("Sale saved successfully: {}", savedSale);
 
-            logger.info("=== TEST SAGA COMPLETED SUCCESSFULLY ===");
+            logger.info("=== SAGA COMPLETED SUCCESSFULLY ===");
             return savedSale;
 
         } catch (Exception e) {
-            logger.error("=== TEST SAGA FAILED - NO WAREHOUSE ROLLBACK NEEDED ===", e);
+            logger.error("=== SAGA FAILED - INITIATING ROLLBACK ===", e);
             
-            // No warehouse rollback needed since we didn't touch warehouse
-            logger.info("Test SAGA failed, no warehouse compensation needed");
+            // Rollback compensation: Release reserved stock
+            try {
+                logger.info("SAGA COMPENSATION: Releasing reserved stock for product: {}", productDto.getId());
+                warehouseClient.releaseStock(productDto.getId(), quantity);
+                logger.info("Stock released successfully during rollback");
+            } catch (Exception rollbackException) {
+                logger.error("CRITICAL: Failed to release stock during rollback", rollbackException);
+            }
 
-            logger.error("=== TEST SAGA ROLLBACK COMPLETED ===");
-            throw new RuntimeException("Test sale creation failed: " + e.getMessage(), e);
+            // Rollback compensation: Delete any created accounting entries (if service is available)
+            try {
+                logger.info("SAGA COMPENSATION: Deleting accounting entries for transaction: {}", saleNumber);
+                accountingClient.deleteJournalEntriesByTransaction(saleNumber);
+                logger.info("Accounting entries deleted successfully during rollback");
+            } catch (Exception rollbackException) {
+                logger.warn("Accounting service not available for rollback compensation");
+            }
+
+            logger.error("=== SAGA ROLLBACK COMPLETED ===");
+            throw new RuntimeException("Sale creation failed: " + e.getMessage(), e);
         }
     }
 }

@@ -24,18 +24,18 @@ public class SalesApi {
 
     @PostMapping
     public ResponseEntity<SaleDto> createSale(@RequestBody @Valid ProductDto productDto, 
-                                             @RequestParam Integer quantity) {
+                                             @RequestParam(defaultValue = "1") Integer quantity) {
         logger.info("=== SALES API ===");
         logger.info("POST /api/sales called with productDto: {} and quantity: {}", productDto, quantity);
 
         try {
-            if (quantity == null || quantity <= 0) {
+            if (quantity <= 0) {
                 logger.warn("Invalid quantity provided: {}", quantity);
                 return ResponseEntity.badRequest().build();
             }
 
-            // Execute SAGA orchestration
-            Sale createdSale = completeSaleBl.createAndSaveSale(productDto, quantity);
+            // Execute SAGA orchestration using price from ProductDto (like original monolith)
+            Sale createdSale = completeSaleBl.createAndSaveSaleWithProductDtoPrice(productDto, quantity);
             
             // Convert to DTO
             SaleDto saleDto = convertToDto(createdSale);
@@ -50,7 +50,10 @@ public class SalesApi {
                 return ResponseEntity.notFound().build();
             } else if (e.getMessage().contains("Insufficient stock")) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).build();
-            } else if (e.getMessage().contains("Accounting service failure simulation")) {
+            } else if (e.getMessage().contains("0.99") || 
+                       e.getMessage().contains("rollback trigger") ||
+                       e.getMessage().contains("[422]") ||
+                       e.getMessage().contains("UnprocessableEntity")) {
                 // This is the 0.99 price rollback trigger
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
             } else if (e.getMessage().contains("Load balancer does not contain an instance")) {
@@ -111,52 +114,6 @@ public class SalesApi {
         }
     }
 
-    @PostMapping("/test")
-    public ResponseEntity<SaleDto> createTestSale(@RequestParam(defaultValue = "1") Integer productId,
-                                                 @RequestParam(defaultValue = "1") Integer quantity,
-                                                 @RequestParam(defaultValue = "10.99") String price) {
-        logger.info("=== SALES API - TEST ENDPOINT (DIRECT) ===");
-        logger.info("POST /api/sales/test called with productId: {}, quantity: {}, price: {}", 
-                   productId, quantity, price);
-
-        try {
-            BigDecimal testPrice = new BigDecimal(price);
-            logger.info("Creating test sale with direct price: {}", testPrice);
-            
-            // Check for 0.99 trigger before processing
-            if (testPrice.compareTo(new BigDecimal("0.99")) == 0) {
-                logger.warn("0.99 TRIGGER DETECTED in test endpoint - this will trigger accounting rollback");
-            }
-            
-            // Create test product DTO
-            ProductDto testProduct = new ProductDto();
-            testProduct.setId(productId);
-            testProduct.setName("Test Product");
-            testProduct.setPrice(testPrice);
-            testProduct.setStockQuantity(100);
-
-            // Use the test SAGA logic that bypasses warehouse validation
-            Sale savedSale = completeSaleBl.createAndSaveSaleWithTestPrice(testProduct, quantity, testPrice);
-            
-            SaleDto saleDto = convertToDto(savedSale);
-            logger.info("Test sale created successfully: {}", saleDto);
-            return ResponseEntity.status(HttpStatus.CREATED).body(saleDto);
-
-        } catch (Exception e) {
-            logger.error("Test sale creation failed", e);
-            
-            // Handle rollback scenarios - Check for 422 from Accounting Service
-            if (e.getMessage().contains("0.99") || 
-                e.getMessage().contains("rollback trigger") ||
-                e.getMessage().contains("[422]") ||
-                e.getMessage().contains("UnprocessableEntity")) {
-                logger.error("0.99 ROLLBACK TRIGGER ACTIVATED in test endpoint");
-                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
-            }
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
 
 
     private SaleDto convertToDto(Sale sale) {

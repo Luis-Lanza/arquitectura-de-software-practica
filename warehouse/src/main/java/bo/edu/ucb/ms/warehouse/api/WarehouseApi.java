@@ -37,11 +37,11 @@ public class WarehouseApi {
             }
 
             ProductDto productDto = new ProductDto(
-                product.getId(),
                 product.getName(),
                 product.getPrice(),
                 product.getStockQuantity()
             );
+            productDto.setId(product.getId());
 
             logger.info("Returning product: {}", productDto);
             return ResponseEntity.ok(productDto);
@@ -96,11 +96,11 @@ public class WarehouseApi {
             Product updatedProduct = productStockBl.reserveStock(productId, quantity);
             
             ProductDto productDto = new ProductDto(
-                updatedProduct.getId(),
                 updatedProduct.getName(),
                 updatedProduct.getPrice(),
                 updatedProduct.getStockQuantity()
             );
+            productDto.setId(updatedProduct.getId());
 
             logger.info("Stock reserved successfully: {}", productDto);
             return ResponseEntity.ok(productDto);
@@ -130,11 +130,11 @@ public class WarehouseApi {
             Product updatedProduct = productStockBl.releaseStock(productId, quantity);
             
             ProductDto productDto = new ProductDto(
-                updatedProduct.getId(),
                 updatedProduct.getName(),
                 updatedProduct.getPrice(),
                 updatedProduct.getStockQuantity()
             );
+            productDto.setId(updatedProduct.getId());
 
             logger.info("Stock released successfully: {}", productDto);
             return ResponseEntity.ok(productDto);
@@ -167,11 +167,11 @@ public class WarehouseApi {
             Product updatedProduct = productStockBl.updateProductStock(product);
             
             ProductDto responseDto = new ProductDto(
-                updatedProduct.getId(),
                 updatedProduct.getName(),
                 updatedProduct.getPrice(),
                 updatedProduct.getStockQuantity()
             );
+            responseDto.setId(updatedProduct.getId());
 
             logger.info("Stock updated successfully: {}", responseDto);
             return ResponseEntity.ok(responseDto);

@@ -1,8 +1,9 @@
 package bo.edu.ucb.ms.accounting.repository;
 
 import bo.edu.ucb.ms.accounting.entity.Journal;
-import bo.edu.ucb.ms.accounting.entity.Status;
+import bo.edu.ucb.ms.accounting.entity.Journal.Status;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface JournalRepository extends JpaRepository<Journal, Integer> {
+public interface JournalRepository extends JpaRepository<Journal, Long> {
 
     Optional<Journal> findByJournalEntryNumber(String journalEntryNumber);
 
@@ -58,6 +59,7 @@ public interface JournalRepository extends JpaRepository<Journal, Integer> {
     @Query("SELECT COUNT(j) FROM Journal j WHERE j.status = :status")
     Long countByStatus(@Param("status") Status status);
 
+    @Modifying
     @Query("DELETE FROM Journal j WHERE j.referenceNumber = :referenceNumber")
     void deleteByReferenceNumber(@Param("referenceNumber") String referenceNumber);
 

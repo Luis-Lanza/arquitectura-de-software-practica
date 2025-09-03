@@ -27,7 +27,7 @@ public class Product {
     @Column(precision = 10, scale = 2)
     private BigDecimal cost;
 
-    @Column(length = 100, unique = true)
+    @Column(name = "sku", length = 50, unique = true)
     private String sku;
 
     @Column(name = "stock_quantity", nullable = false, columnDefinition = "INT DEFAULT 0")
@@ -38,6 +38,18 @@ public class Product {
 
     @Column(name = "max_stock_level", columnDefinition = "INT DEFAULT 1000")
     private Integer maxStockLevel = 1000;
+    
+    @Column(name = "supplier", length = 255)
+    private String supplier;
+    
+    @Column(name = "brand", length = 100)
+    private String brand;
+    
+    @Column(name = "weight", precision = 8, scale = 2)
+    private BigDecimal weight;
+    
+    @Column(name = "dimensions", length = 50)
+    private String dimensions;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "ENUM('active', 'inactive', 'discontinued') DEFAULT 'active'")
@@ -153,6 +165,38 @@ public class Product {
         this.maxStockLevel = maxStockLevel;
     }
 
+    public String getSupplier() {
+        return supplier;
+    }
+
+    public void setSupplier(String supplier) {
+        this.supplier = supplier;
+    }
+
+    public String getBrand() {
+        return brand;
+    }
+
+    public void setBrand(String brand) {
+        this.brand = brand;
+    }
+
+    public BigDecimal getWeight() {
+        return weight;
+    }
+
+    public void setWeight(BigDecimal weight) {
+        this.weight = weight;
+    }
+
+    public String getDimensions() {
+        return dimensions;
+    }
+
+    public void setDimensions(String dimensions) {
+        this.dimensions = dimensions;
+    }
+
     public ProductStatus getStatus() {
         return status;
     }
@@ -190,6 +234,10 @@ public class Product {
                 ", stockQuantity=" + stockQuantity +
                 ", minStockLevel=" + minStockLevel +
                 ", maxStockLevel=" + maxStockLevel +
+                ", supplier='" + supplier + '\'' +
+                ", brand='" + brand + '\'' +
+                ", weight=" + weight +
+                ", dimensions='" + dimensions + '\'' +
                 ", status=" + status +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +

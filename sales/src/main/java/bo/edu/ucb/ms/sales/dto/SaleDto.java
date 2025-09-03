@@ -1,61 +1,79 @@
 package bo.edu.ucb.ms.sales.dto;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * DTO class for Sale entity
+ * Contains all the information returned after a sale is processed
+ */
 public class SaleDto {
 
-    private Integer id;
+    private Long id;
+
+    @NotBlank(message = "Sale number is required")
     private String saleNumber;
 
     @NotNull(message = "Product ID is required")
-    @Min(value = 1, message = "Product ID must be positive")
     private Integer productId;
 
     @NotNull(message = "Quantity is required")
-    @Min(value = 1, message = "Quantity must be positive")
+    @Min(value = 1, message = "Quantity must be greater than 0")
     private Integer quantity;
 
     @NotNull(message = "Unit price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Unit price must be positive")
+    @DecimalMin(value = "0.0", message = "Unit price must be greater than or equal to 0")
     private BigDecimal unitPrice;
 
-    private BigDecimal discountPercentage;
-    private BigDecimal discountAmount;
     private BigDecimal totalAmount;
-    private BigDecimal taxAmount;
+
+    @DecimalMin(value = "0.0", message = "Discount percentage must be between 0 and 100")
+    @DecimalMax(value = "100.0", message = "Discount percentage must be between 0 and 100")
+    private BigDecimal discountPercentage;
+
+    private BigDecimal discountAmount;
+
     private BigDecimal finalAmount;
+
+    private LocalDate saleDate;
+
+    private Integer customerId;
+
     private String customerName;
-    private String customerEmail;
+
+    private String salesperson;
+
+    private String paymentMethod;
+
+    @Pattern(regexp = "pending|paid|partial|cancelled", message = "Payment status must be one of: pending, paid, partial, cancelled")
     private String paymentStatus;
+
     private String notes;
+
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 
+    // Default constructor
     public SaleDto() {}
 
-    public SaleDto(Integer productId, Integer quantity, BigDecimal unitPrice) {
+    // Constructor with required fields
+    public SaleDto(String saleNumber, Integer productId, Integer quantity, BigDecimal unitPrice, BigDecimal totalAmount) {
+        this.saleNumber = saleNumber;
         this.productId = productId;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
+        this.totalAmount = totalAmount;
     }
 
-    public SaleDto(Integer productId, Integer quantity, BigDecimal unitPrice, String customerName, String customerEmail) {
-        this.productId = productId;
-        this.quantity = quantity;
-        this.unitPrice = unitPrice;
-        this.customerName = customerName;
-        this.customerEmail = customerEmail;
-    }
-
-    public Integer getId() {
+    // Getters and Setters
+    public Long getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -91,6 +109,14 @@ public class SaleDto {
         this.unitPrice = unitPrice;
     }
 
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
     public BigDecimal getDiscountPercentage() {
         return discountPercentage;
     }
@@ -107,28 +133,28 @@ public class SaleDto {
         this.discountAmount = discountAmount;
     }
 
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
-
-    public BigDecimal getTaxAmount() {
-        return taxAmount;
-    }
-
-    public void setTaxAmount(BigDecimal taxAmount) {
-        this.taxAmount = taxAmount;
-    }
-
     public BigDecimal getFinalAmount() {
         return finalAmount;
     }
 
     public void setFinalAmount(BigDecimal finalAmount) {
         this.finalAmount = finalAmount;
+    }
+
+    public LocalDate getSaleDate() {
+        return saleDate;
+    }
+
+    public void setSaleDate(LocalDate saleDate) {
+        this.saleDate = saleDate;
+    }
+
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
     }
 
     public String getCustomerName() {
@@ -139,12 +165,20 @@ public class SaleDto {
         this.customerName = customerName;
     }
 
-    public String getCustomerEmail() {
-        return customerEmail;
+    public String getSalesperson() {
+        return salesperson;
     }
 
-    public void setCustomerEmail(String customerEmail) {
-        this.customerEmail = customerEmail;
+    public void setSalesperson(String salesperson) {
+        this.salesperson = salesperson;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     public String getPaymentStatus() {
@@ -187,13 +221,15 @@ public class SaleDto {
                 ", productId=" + productId +
                 ", quantity=" + quantity +
                 ", unitPrice=" + unitPrice +
+                ", totalAmount=" + totalAmount +
                 ", discountPercentage=" + discountPercentage +
                 ", discountAmount=" + discountAmount +
-                ", totalAmount=" + totalAmount +
-                ", taxAmount=" + taxAmount +
                 ", finalAmount=" + finalAmount +
+                ", saleDate=" + saleDate +
+                ", customerId=" + customerId +
                 ", customerName='" + customerName + '\'' +
-                ", customerEmail='" + customerEmail + '\'' +
+                ", salesperson='" + salesperson + '\'' +
+                ", paymentMethod='" + paymentMethod + '\'' +
                 ", paymentStatus='" + paymentStatus + '\'' +
                 ", notes='" + notes + '\'' +
                 ", createdAt=" + createdAt +

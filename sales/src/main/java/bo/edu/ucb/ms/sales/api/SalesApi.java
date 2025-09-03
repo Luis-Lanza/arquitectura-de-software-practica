@@ -1,8 +1,8 @@
 package bo.edu.ucb.ms.sales.api;
 
 import bo.edu.ucb.ms.sales.bl.CompleteSaleBl;
-import bo.edu.ucb.ms.sales.dto.ProductDto;
 import bo.edu.ucb.ms.sales.dto.SaleDto;
+import bo.edu.ucb.ms.sales.dto.ProductDto;
 import bo.edu.ucb.ms.sales.entity.Sale;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -123,13 +123,15 @@ public class SalesApi {
         dto.setProductId(sale.getProductId());
         dto.setQuantity(sale.getQuantity());
         dto.setUnitPrice(sale.getUnitPrice());
+        dto.setTotalAmount(sale.getTotalAmount());
         dto.setDiscountPercentage(sale.getDiscountPercentage());
         dto.setDiscountAmount(sale.getDiscountAmount());
-        dto.setTotalAmount(sale.getTotalAmount());
-        dto.setTaxAmount(sale.getTaxAmount());
         dto.setFinalAmount(sale.getFinalAmount());
+        dto.setSaleDate(sale.getSaleDate());
+        dto.setCustomerId(sale.getCustomerId());
         dto.setCustomerName(sale.getCustomerName());
-        dto.setCustomerEmail(sale.getCustomerEmail());
+        dto.setSalesperson(sale.getSalesperson());
+        dto.setPaymentMethod(sale.getPaymentMethod());
         dto.setPaymentStatus(sale.getPaymentStatus());
         dto.setNotes(sale.getNotes());
         dto.setCreatedAt(sale.getCreatedAt());

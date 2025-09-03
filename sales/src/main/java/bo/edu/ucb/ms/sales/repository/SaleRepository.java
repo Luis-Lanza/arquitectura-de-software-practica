@@ -12,13 +12,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface SaleRepository extends JpaRepository<Sale, Integer> {
+public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     Optional<Sale> findBySaleNumber(String saleNumber);
 
     List<Sale> findByCustomerName(String customerName);
-
-    List<Sale> findByCustomerEmail(String customerEmail);
 
     List<Sale> findByProductId(Integer productId);
 
@@ -46,9 +44,6 @@ public interface SaleRepository extends JpaRepository<Sale, Integer> {
     @Query("SELECT COUNT(s) FROM Sale s WHERE s.createdAt BETWEEN :startDate AND :endDate")
     Long countSalesByDateRange(@Param("startDate") LocalDateTime startDate, 
                               @Param("endDate") LocalDateTime endDate);
-
-    @Query("SELECT s FROM Sale s WHERE s.customerEmail = :email ORDER BY s.createdAt DESC")
-    List<Sale> findByCustomerEmailOrderByCreatedAtDesc(@Param("email") String email);
 
     @Query("SELECT DISTINCT s.paymentStatus FROM Sale s")
     List<String> findDistinctPaymentStatuses();

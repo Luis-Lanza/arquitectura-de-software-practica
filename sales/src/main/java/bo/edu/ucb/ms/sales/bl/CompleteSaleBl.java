@@ -2,8 +2,8 @@ package bo.edu.ucb.ms.sales.bl;
 
 import bo.edu.ucb.ms.sales.client.AccountingClient;
 import bo.edu.ucb.ms.sales.client.WarehouseClient;
-import bo.edu.ucb.ms.sales.dto.JournalDto;
 import bo.edu.ucb.ms.sales.dto.ProductDto;
+import bo.edu.ucb.ms.sales.dto.JournalDto;
 import bo.edu.ucb.ms.sales.entity.Sale;
 import bo.edu.ucb.ms.sales.repository.SaleRepository;
 import org.slf4j.Logger;
@@ -217,20 +217,22 @@ public class CompleteSaleBl {
         JournalDto debitEntry = new JournalDto();
         debitEntry.setAccountCode("1200");
         debitEntry.setAccountName("Accounts Receivable");
-        debitEntry.setBalanceType(bo.edu.ucb.ms.sales.dto.BalanceType.D);
+        debitEntry.setBalanceType("D");
         debitEntry.setAmount(sale.getTotalAmount());
         debitEntry.setDescription("Sale of products");
         debitEntry.setReferenceNumber(sale.getSaleNumber());
+        debitEntry.setCreatedBy("SALES_SERVICE");
         entries.add(debitEntry);
 
         // Credit: Sales Revenue
         JournalDto creditEntry = new JournalDto();
         creditEntry.setAccountCode("4100");
         creditEntry.setAccountName("Sales Revenue");
-        creditEntry.setBalanceType(bo.edu.ucb.ms.sales.dto.BalanceType.C);
+        creditEntry.setBalanceType("C");
         creditEntry.setAmount(sale.getTotalAmount());
         creditEntry.setDescription("Sale of products");
         creditEntry.setReferenceNumber(sale.getSaleNumber());
+        creditEntry.setCreatedBy("SALES_SERVICE");
         entries.add(creditEntry);
 
         return entries;
@@ -286,7 +288,7 @@ public class CompleteSaleBl {
         logger.info("=== SALES SERVICE ===");
         logger.info("CompleteSaleBl.getSaleById called with saleId: {}", saleId);
 
-        return saleRepository.findById(saleId).orElse(null);
+        return saleRepository.findById(saleId.longValue()).orElse(null);
     }
 
     @Transactional(rollbackFor = Exception.class)

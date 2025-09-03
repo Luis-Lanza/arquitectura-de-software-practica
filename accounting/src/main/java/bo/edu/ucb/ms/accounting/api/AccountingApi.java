@@ -93,8 +93,8 @@ public class AccountingApi {
         }
     }
 
-    @GetMapping("/journal/{journalId}")
-    public ResponseEntity<JournalDto> getJournalEntry(@PathVariable Integer journalId) {
+@GetMapping("/journal/{journalId}")
+    public ResponseEntity<JournalDto> getJournalEntry(@PathVariable Long journalId) {
         logger.info("=== ACCOUNTING API ===");
         logger.info("GET /api/accounting/journal/{} called", journalId);
 
@@ -183,7 +183,7 @@ public class AccountingApi {
             testJournal.setAccountCode(accountCode);
             testJournal.setAccountName(accountName);
             testJournal.setDescription(description);
-            testJournal.setBalanceType(bo.edu.ucb.ms.accounting.entity.BalanceType.valueOf(balanceType));
+            testJournal.setBalanceType(balanceType);
             testJournal.setAmount(java.math.BigDecimal.valueOf(Double.parseDouble(amount)));
             testJournal.setReferenceNumber(referenceNumber);
 

@@ -1,61 +1,189 @@
-package bo.edu.ucb.ms.sales.dto;
+package bo.edu.ucb.ms.accounting.entity;
 
+import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-public class JournalDto {
+@Entity
+@Table(name = "journal")
+public class Journal {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @NotBlank(message = "Journal entry number is required")
+    @Column(name = "journal_entry_number", nullable = false, unique = true, length = 50)
     private String journalEntryNumber;
 
     @NotBlank(message = "Account code is required")
+    @Column(name = "account_code", nullable = false, length = 20)
     private String accountCode;
 
     @NotBlank(message = "Account name is required")
+    @Column(name = "account_name", nullable = false, length = 255)
     private String accountName;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
 
+    @NotNull(message = "Transaction date is required")
+    @Column(name = "transaction_date", nullable = false)
     private LocalDate transactionDate;
+
+    @Column(name = "reference_number", length = 100)
     private String referenceNumber;
 
     @NotNull(message = "Balance type is required")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "balance_type", nullable = false, length = 1)
     private BalanceType balanceType;
 
-    @DecimalMin(value = "0.0", inclusive = false, message = "Amount must be greater than 0")
-    private BigDecimal amount;
-
+    @Column(name = "debit_amount", precision = 15, scale = 2)
     private BigDecimal debitAmount;
+
+    @Column(name = "credit_amount", precision = 15, scale = 2)
     private BigDecimal creditAmount;
-    private String currency;
-    private BigDecimal exchangeRate;
-    private String status;
+
+    @Column(length = 3, columnDefinition = "VARCHAR(3) DEFAULT 'USD'")
+    private String currency = "USD";
+
+    @Column(name = "exchange_rate", precision = 15, scale = 6, columnDefinition = "DECIMAL(15,6) DEFAULT 1.000000")
+    private BigDecimal exchangeRate = BigDecimal.ONE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'draft'")
+    private Status status = Status.draft;
+
+    @Column(length = 100)
     private String department;
+
+    @Column(name = "cost_center", length = 100)
     private String costCenter;
+
+    @Column(name = "created_by", length = 100)
     private String createdBy;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "posted_at")
     private LocalDateTime postedAt;
+
+    @Column(name = "posted_by", length = 100)
     private String postedBy;
+
+    @Column(columnDefinition = "TEXT")
     private String notes;
 
-    public JournalDto() {}
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (transactionDate == null) {
+            transactionDate = LocalDate.now();
+        }
+        if (journalEntryNumber == null) {
+            generateJournalEntryNumber();
+        }
+        if (createdBy == null) {
+            createdBy = "SYSTEM";
+        }
+        setAmountByBalanceType();
+    }
 
-    public JournalDto(String accountCode, String accountName, String description, 
-                     BalanceType balanceType, BigDecimal amount, String referenceNumber) {
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+        setAmountByBalanceType();
+    }
+
+    private void generateJournalEntryNumber() {
+        LocalDateTime now = LocalDateTime.now();
+        // Include nanoseconds to ensure uniqueness even for simultaneous entries
+        long nanos = now.getNano() / 1000000; // Convert to milliseconds (3 digits)
+        this.journalEntryNumber = String.format("JE-%04d%02d%02d-%02d%02d%02d-%03d",
+                now.getYear(), now.getMonthValue(), now.getDayOfMonth(),
+                now.getHour(), now.getMinute(), now.getSecond(), nanos);
+    }
+
+    private void setAmountByBalanceType() {
+        if (balanceType != null) {
+            if (balanceType == BalanceType.D) {
+                // For debit entries
+                if (creditAmount != null && creditAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    debitAmount = creditAmount;
+                    creditAmount = BigDecimal.ZERO;
+                }
+            } else if (balanceType == BalanceType.C) {
+                // For credit entries
+                if (debitAmount != null && debitAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    creditAmount = debitAmount;
+                    debitAmount = BigDecimal.ZERO;
+                }
+            }
+        }
+    }
+
+    public boolean isBalanced() {
+        BigDecimal totalDebits = debitAmount != null ? debitAmount : BigDecimal.ZERO;
+        BigDecimal totalCredits = creditAmount != null ? creditAmount : BigDecimal.ZERO;
+        return totalDebits.compareTo(totalCredits) == 0;
+    }
+
+    public void post() {
+        if (status == Status.draft) {
+            status = Status.posted;
+            postedAt = LocalDateTime.now();
+            if (postedBy == null) {
+                postedBy = createdBy;
+            }
+        }
+    }
+
+    public void reverse() {
+        if (status == Status.posted) {
+            status = Status.reversed;
+        }
+    }
+
+    public BigDecimal getAmount() {
+        if (debitAmount != null && debitAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return debitAmount;
+        }
+        if (creditAmount != null && creditAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return creditAmount;
+        }
+        return BigDecimal.ZERO;
+    }
+
+    public Journal() {}
+
+    public Journal(String accountCode, String accountName, String description, 
+                  BalanceType balanceType, BigDecimal amount, String referenceNumber) {
         this.accountCode = accountCode;
         this.accountName = accountName;
         this.description = description;
         this.balanceType = balanceType;
-        this.amount = amount;
         this.referenceNumber = referenceNumber;
+        
+        if (balanceType == BalanceType.D) {
+            this.debitAmount = amount;
+            this.creditAmount = BigDecimal.ZERO;
+        } else {
+            this.creditAmount = amount;
+            this.debitAmount = BigDecimal.ZERO;
+        }
     }
 
+    // Getters and Setters
     public Integer getId() {
         return id;
     }
@@ -120,14 +248,6 @@ public class JournalDto {
         this.balanceType = balanceType;
     }
 
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
     public BigDecimal getDebitAmount() {
         return debitAmount;
     }
@@ -160,11 +280,11 @@ public class JournalDto {
         this.exchangeRate = exchangeRate;
     }
 
-    public String getStatus() {
+    public Status getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(Status status) {
         this.status = status;
     }
 
@@ -234,7 +354,7 @@ public class JournalDto {
 
     @Override
     public String toString() {
-        return "JournalDto{" +
+        return "Journal{" +
                 "id=" + id +
                 ", journalEntryNumber='" + journalEntryNumber + '\'' +
                 ", accountCode='" + accountCode + '\'' +
@@ -242,13 +362,12 @@ public class JournalDto {
                 ", description='" + description + '\'' +
                 ", transactionDate=" + transactionDate +
                 ", referenceNumber='" + referenceNumber + '\'' +
-                ", balanceType='" + balanceType + '\'' +
-                ", amount=" + amount +
+                ", balanceType=" + balanceType +
                 ", debitAmount=" + debitAmount +
                 ", creditAmount=" + creditAmount +
                 ", currency='" + currency + '\'' +
                 ", exchangeRate=" + exchangeRate +
-                ", status='" + status + '\'' +
+                ", status=" + status +
                 ", department='" + department + '\'' +
                 ", costCenter='" + costCenter + '\'' +
                 ", createdBy='" + createdBy + '\'' +

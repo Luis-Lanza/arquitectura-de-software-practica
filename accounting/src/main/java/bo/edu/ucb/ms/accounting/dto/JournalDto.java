@@ -1,5 +1,7 @@
-package bo.edu.ucb.ms.sales.dto;
+package bo.edu.ucb.ms.accounting.dto;
 
+import bo.edu.ucb.ms.accounting.entity.BalanceType;
+import bo.edu.ucb.ms.accounting.entity.Status;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -34,7 +36,7 @@ public class JournalDto {
     private BigDecimal creditAmount;
     private String currency;
     private BigDecimal exchangeRate;
-    private String status;
+    private Status status;
     private String department;
     private String costCenter;
     private String createdBy;
@@ -160,11 +162,11 @@ public class JournalDto {
         this.exchangeRate = exchangeRate;
     }
 
-    public String getStatus() {
+    public Status getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(Status status) {
         this.status = status;
     }
 
@@ -242,13 +244,13 @@ public class JournalDto {
                 ", description='" + description + '\'' +
                 ", transactionDate=" + transactionDate +
                 ", referenceNumber='" + referenceNumber + '\'' +
-                ", balanceType='" + balanceType + '\'' +
+                ", balanceType=" + balanceType +
                 ", amount=" + amount +
                 ", debitAmount=" + debitAmount +
                 ", creditAmount=" + creditAmount +
                 ", currency='" + currency + '\'' +
                 ", exchangeRate=" + exchangeRate +
-                ", status='" + status + '\'' +
+                ", status=" + status +
                 ", department='" + department + '\'' +
                 ", costCenter='" + costCenter + '\'' +
                 ", createdBy='" + createdBy + '\'' +

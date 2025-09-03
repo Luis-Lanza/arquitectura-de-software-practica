@@ -215,22 +215,22 @@ public class CompleteSaleBl {
 
         // Debit: Accounts Receivable
         JournalDto debitEntry = new JournalDto();
-        debitEntry.setTransactionNumber(sale.getSaleNumber());
+        debitEntry.setAccountCode("1200");
         debitEntry.setAccountName("Accounts Receivable");
-        debitEntry.setTransactionType("debit");
+        debitEntry.setBalanceType(bo.edu.ucb.ms.sales.dto.BalanceType.D);
         debitEntry.setAmount(sale.getTotalAmount());
         debitEntry.setDescription("Sale of products");
-        debitEntry.setReference("Sale #" + sale.getSaleNumber());
+        debitEntry.setReferenceNumber(sale.getSaleNumber());
         entries.add(debitEntry);
 
         // Credit: Sales Revenue
         JournalDto creditEntry = new JournalDto();
-        creditEntry.setTransactionNumber(sale.getSaleNumber());
+        creditEntry.setAccountCode("4100");
         creditEntry.setAccountName("Sales Revenue");
-        creditEntry.setTransactionType("credit");
+        creditEntry.setBalanceType(bo.edu.ucb.ms.sales.dto.BalanceType.C);
         creditEntry.setAmount(sale.getTotalAmount());
         creditEntry.setDescription("Sale of products");
-        creditEntry.setReference("Sale #" + sale.getSaleNumber());
+        creditEntry.setReferenceNumber(sale.getSaleNumber());
         entries.add(creditEntry);
 
         return entries;
@@ -254,5 +254,54 @@ public class CompleteSaleBl {
         logger.info("CompleteSaleBl.getSaleById called with saleId: {}", saleId);
 
         return saleRepository.findById(saleId).orElse(null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Sale createAndSaveSaleWithTestPrice(ProductDto productDto, Integer quantity, BigDecimal testPrice) {
+        logger.info("=== SALES SERVICE - TEST SAGA ORCHESTRATOR ===");
+        logger.info("CompleteSaleBl.createAndSaveSaleWithTestPrice called with testPrice: {}", testPrice);
+
+        String saleNumber = generateSaleNumber();
+        logger.info("Generated sale number: {}", saleNumber);
+
+        try {
+            // Skip warehouse validation for test, use provided price directly
+            logger.info("TEST SAGA STEP 1: Using provided test price: {}", testPrice);
+
+            // Create Sale Entity with test price
+            logger.info("TEST SAGA STEP 2: Creating sale entity with test price");
+            Sale sale = createSaleEntity(productDto, quantity, saleNumber);
+            sale.setUnitPrice(testPrice); // Override with test price
+            sale.setTotalAmount(testPrice.multiply(BigDecimal.valueOf(quantity))); // Recalculate with test price
+            logger.info("Sale entity created with test price: {}", sale);
+
+            // Register Accounting Entries with test price (this will trigger 0.99 if needed)
+            logger.info("TEST SAGA STEP 3: Registering accounting entries with test price");
+            
+            // Check for rollback trigger (0.99 price)
+            if (testPrice.compareTo(new BigDecimal("0.99")) == 0) {
+                logger.warn("0.99 TEST TRIGGER DETECTED: This will force accounting failure");
+            }
+            
+            registerSaleInJournal(sale);
+            logger.info("Accounting entries registered successfully with test price");
+
+            // Save Sale
+            logger.info("TEST SAGA STEP 4: Saving sale to database");
+            Sale savedSale = saleRepository.save(sale);
+            logger.info("Test sale saved successfully: {}", savedSale);
+
+            logger.info("=== TEST SAGA COMPLETED SUCCESSFULLY ===");
+            return savedSale;
+
+        } catch (Exception e) {
+            logger.error("=== TEST SAGA FAILED - NO WAREHOUSE ROLLBACK NEEDED ===", e);
+            
+            // No warehouse rollback needed since we didn't touch warehouse
+            logger.info("Test SAGA failed, no warehouse compensation needed");
+
+            logger.error("=== TEST SAGA ROLLBACK COMPLETED ===");
+            throw new RuntimeException("Test sale creation failed: " + e.getMessage(), e);
+        }
     }
 }

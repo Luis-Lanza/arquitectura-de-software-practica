@@ -5,6 +5,7 @@ import bo.edu.ucb.ms.sales.dto.ProductDto;
 import bo.edu.ucb.ms.sales.dto.SaleDto;
 import bo.edu.ucb.ms.sales.entity.Sale;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,25 +115,49 @@ public class SalesApi {
     public ResponseEntity<SaleDto> createTestSale(@RequestParam(defaultValue = "1") Integer productId,
                                                  @RequestParam(defaultValue = "1") Integer quantity,
                                                  @RequestParam(defaultValue = "10.99") String price) {
-        logger.info("=== SALES API - TEST ENDPOINT ===");
+        logger.info("=== SALES API - TEST ENDPOINT (DIRECT) ===");
         logger.info("POST /api/sales/test called with productId: {}, quantity: {}, price: {}", 
                    productId, quantity, price);
 
         try {
+            BigDecimal testPrice = new BigDecimal(price);
+            logger.info("Creating test sale with direct price: {}", testPrice);
+            
+            // Check for 0.99 trigger before processing
+            if (testPrice.compareTo(new BigDecimal("0.99")) == 0) {
+                logger.warn("0.99 TRIGGER DETECTED in test endpoint - this will trigger accounting rollback");
+            }
+            
             // Create test product DTO
             ProductDto testProduct = new ProductDto();
             testProduct.setId(productId);
             testProduct.setName("Test Product");
-            testProduct.setPrice(java.math.BigDecimal.valueOf(Double.parseDouble(price)));
-            testProduct.setStockQuantity(100); // Assume sufficient stock for test
+            testProduct.setPrice(testPrice);
+            testProduct.setStockQuantity(100);
 
-            return createSale(testProduct, quantity);
+            // Use the test SAGA logic that bypasses warehouse validation
+            Sale savedSale = completeSaleBl.createAndSaveSaleWithTestPrice(testProduct, quantity, testPrice);
+            
+            SaleDto saleDto = convertToDto(savedSale);
+            logger.info("Test sale created successfully: {}", saleDto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(saleDto);
 
         } catch (Exception e) {
-            logger.error("Error in test sale creation", e);
+            logger.error("Test sale creation failed", e);
+            
+            // Handle rollback scenarios - Check for 422 from Accounting Service
+            if (e.getMessage().contains("0.99") || 
+                e.getMessage().contains("rollback trigger") ||
+                e.getMessage().contains("[422]") ||
+                e.getMessage().contains("UnprocessableEntity")) {
+                logger.error("0.99 ROLLBACK TRIGGER ACTIVATED in test endpoint");
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+            }
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
 
     private SaleDto convertToDto(Sale sale) {
         SaleDto dto = new SaleDto();

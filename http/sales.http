@@ -1,0 +1,21 @@
+### Create Sale - Success Case
+POST http://localhost:8081/api/sales?quantity=2
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "Laptop Dell Inspiron 15",
+  "price": 899.99,
+  "stockQuantity": 10
+}
+
+### Create Sale - Rollback Test (price 0.99)
+POST http://localhost:8081/api/sales?quantity=1
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "Test Product",
+  "price": 0.99,
+  "stockQuantity": 5
+}
